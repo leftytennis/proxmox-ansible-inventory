@@ -10,21 +10,25 @@ import (
 )
 
 // GetHosts returns a sorted list of hosts
-func GetHosts(hosts HostVarMap, excludedHosts map[string]bool) []string {
+func (i *Inventory) GetHosts(hosts MapHostVar, excludedHosts map[string]bool) []string {
+
 	keys := []string{}
+
 	for host := range hosts {
 		if _, ok := excludedHosts[host]; !ok {
 			keys = append(keys, host)
 		}
 	}
+
 	sort.Strings(keys)
+	
 	return keys
 }
 
 // ReadHosts reads the hosts file and returns a slice of hosts
-func ReadHosts(excludedHosts map[string]bool) (HostVarMap, error) {
+func (i *Inventory) ReadHosts(excludedHosts map[string]bool) (MapHostVar, error) {
 
-	hosts := make(HostVarMap)
+	hosts := make(MapHostVar)
 
 	f, err := os.Open("/Users/jefft/develop/ansible/hosts")
 	defer f.Close()

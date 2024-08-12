@@ -1,2 +1,5 @@
-inventory_proxmox
+?.txt
+.vscode/
 dist/
+inventory_proxmox
+vendor/

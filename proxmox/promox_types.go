@@ -3,13 +3,13 @@ package proxmox
 
 import "net/http"
 
-// LXCConfig is the response for the Proxmox API LXC config
-type LXCConfig struct {
-	Data LXCConfigData `json:"data"`
+// LxcConfig is the response for the Proxmox API LXC config
+type LxcConfig struct {
+	Data LxcConfigData `json:"data"`
 }
 
-// LXCConfigData is the struct for the Proxmox API LXC config data
-type LXCConfigData struct {
+// LxcConfigData is the struct for the Proxmox API LXC config data
+type LxcConfigData struct {
 	Swap         int    `json:"swap"`
 	Unprivileged int    `json:"unprivileged"`
 	Net0         string `json:"net0"`
@@ -30,13 +30,13 @@ type LXCConfigData struct {
 	Arch         string `json:"arch"`
 }
 
-// LXCResponse is the list of Proxmox LXC containers
-type LXCResponse struct {
-	Data []LXCData `json:"data"`
+// LxcResponse is the list of Proxmox LXC containers
+type LxcResponse struct {
+	Data []LxcData `json:"data"`
 }
 
-// LXCData is the struct for a Proxmoc LXC container
-type LXCData struct {
+// LxcData is the struct for a Proxmoc LXC container
+type LxcData struct {
 	Name      string  `json:"name"`
 	Disk      int     `json:"disk"`
 	Maxdisk   int64   `json:"maxdisk"`
@@ -58,20 +58,20 @@ type LXCData struct {
 	CPU       float64 `json:"cpu"`
 }
 
-// ProxmoxClient is the struct for the Proxmox API client
-type ProxmoxClient struct {
+// Client is the struct for the Proxmox API client
+type Client struct {
 	BaseURL    string
 	apiKey     string
 	HTTPClient *http.Client
 }
 
-// ProxmoxNodeList is the struct for the Proxmox API data
-type ProxmoxNodeList struct {
-	Data []ProxmoxNodeData `json:"data"`
+// NodeList is the struct for the Proxmox API data
+type NodeList struct {
+	Data []NodeData `json:"data"`
 }
 
-// ProxmoxNodeData is the struct for the Proxmox API node data
-type ProxmoxNodeData struct {
+// NodeData is the struct for the Proxmox API node data
+type NodeData struct {
 	Node           string  `json:"node"`
 	Mem            int64   `json:"mem"`
 	Level          string  `json:"level"`
@@ -87,35 +87,35 @@ type ProxmoxNodeData struct {
 	Type           string  `json:"type"`
 }
 
-// ProxmoxSubdir is the struct for the Proxmox API data
-type ProxmoxSubdir struct {
-	Data []ProxmoxSubdirData `json:"data"`
+// Subdir is the struct for the Proxmox API data
+type Subdir struct {
+	Data []SubdirData `json:"data"`
 }
 
-// ProxmoxSubdirData is the struct for the Proxmox API subdir
-type ProxmoxSubdirData struct {
+// SubdirData is the struct for the Proxmox API subdir
+type SubdirData struct {
 	Subdir string `json:"subdir"`
 }
 
-// ProxmoxVersion is the struct for the Proxmox API data
-type ProxmoxVersion struct {
-	Data ProxmoxVersionData `json:"data"`
+// Version is the struct for the Proxmox API data
+type Version struct {
+	Data VersionData `json:"data"`
 }
 
-// ProxmoxVersionData is the struct for the Proxmox API version info
-type ProxmoxVersionData struct {
+// VersionData is the struct for the Proxmox API version info
+type VersionData struct {
 	Release string `json:"release"`
 	Version string `json:"version"`
 	RepoID  string `json:"repoid"`
 }
 
-// ProxmoxVMConfig is the struct for the Proxmox API VM config
-type ProxmoxVMConfig struct {
-	Data ProxmoxVMConfigData `json:"data"`
+// VMConfig is the struct for the Proxmox API VM config
+type VMConfig struct {
+	Data VMConfigData `json:"data"`
 }
 
-// ProxmoxVMConfigData is the struct for the Proxmox API VM config data
-type ProxmoxVMConfigData struct {
+// VMConfigData is the struct for the Proxmox API VM config data
+type VMConfigData struct {
 	Scsihw  string `json:"scsihw"`
 	Ide2    string `json:"ide2"`
 	Cores   int    `json:"cores"`
@@ -142,13 +142,13 @@ type ProxmoxVMConfigData struct {
 	Scsi0   string `json:"scsi0"`
 }
 
-// ProxmoxVMs is the struct for the Proxmox API data
-type ProxmoxVMs struct {
-	Data []ProxmoxVM `json:"data"`
+// VMList is the struct for the Proxmox API data
+type VMList struct {
+	Data []VM `json:"data"`
 }
 
-// ProxmoxVM is the struct for a proxmoc Qemu VM
-type ProxmoxVM struct {
+// VM is the struct for a proxmoc Qemu VM
+type VM struct {
 	Disk      int     `json:"disk"`
 	Name      string  `json:"name"`
 	Maxmem    int64   `json:"maxmem"`

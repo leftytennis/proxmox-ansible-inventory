@@ -13,16 +13,16 @@ const (
 	proxmoxAPIURL = "https://pve1.lefty.tennis:8006/api2/json/"
 )
 
-// NewProxmoxClient creates a new ProxmoxClient
-func NewProxmoxClient(apiKey string) *ProxmoxClient {
-	return &ProxmoxClient{
+// NewClient creates a new Client
+func NewClient(apiKey string) *Client {
+	return &Client{
 		BaseURL:    proxmoxAPIURL,
 		apiKey:     apiKey,
 		HTTPClient: &http.Client{Timeout: time.Second * 30},
 	}
 }
 
-func (c *ProxmoxClient) doRequest(req *http.Request) (*http.Response, error) {
+func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	req.Header.Add("Authorization", c.apiKey)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
@@ -39,7 +39,7 @@ func (c *ProxmoxClient) doRequest(req *http.Request) (*http.Response, error) {
 }
 
 // Get performs a GET request to the Proxmox API
-func (c *ProxmoxClient) Get(url string) (*http.Response, error) {
+func (c *Client) Get(url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", c.BaseURL, url), nil)
 	if err != nil {
 		return nil, err
@@ -47,8 +47,8 @@ func (c *ProxmoxClient) Get(url string) (*http.Response, error) {
 	return c.doRequest(req)
 }
 
-// GetLXCConfig performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetLXCConfig(ctx context.Context, vmid int) (*LXCConfig, error) {
+// GetLxcConfig performs a GET request to the Proxmox API
+func (c *Client) GetLxcConfig(ctx context.Context, vmid int) (*LxcConfig, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/lxc/%d/config", c.BaseURL, vmid), nil)
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *ProxmoxClient) GetLXCConfig(ctx context.Context, vmid int) (*LXCConfig,
 
 	defer resp.Body.Close()
 
-	data := &LXCConfig{}
+	data := &LxcConfig{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -74,8 +74,8 @@ func (c *ProxmoxClient) GetLXCConfig(ctx context.Context, vmid int) (*LXCConfig,
 	return data, nil
 }
 
-// GetLXCList returns a lsit of LXC containers
-func (c *ProxmoxClient) GetLXCList(ctx context.Context, node string) ([]string, error) {
+// GetLxcList returns a lsit of LXC containers
+func (c *Client) GetLxcList(ctx context.Context, node string) ([]string, error) {
 	
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/lxc", c.BaseURL, node), nil)
 
@@ -93,7 +93,7 @@ func (c *ProxmoxClient) GetLXCList(ctx context.Context, node string) ([]string, 
 
 	defer resp.Body.Close()
 
-	data := &LXCResponse{}
+	data := &LxcResponse{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -111,8 +111,8 @@ func (c *ProxmoxClient) GetLXCList(ctx context.Context, node string) ([]string, 
 	return lxcs, nil
 }
 
-// GetLXCs performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetLXCs(ctx context.Context) (*LXCResponse, error) {
+// GetLxcs performs a GET request to the Proxmox API
+func (c *Client) GetLxcs(ctx context.Context) (*LxcResponse, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/lxc", c.BaseURL), nil)
 	if err != nil {
@@ -128,7 +128,7 @@ func (c *ProxmoxClient) GetLXCs(ctx context.Context) (*LXCResponse, error) {
 
 	defer resp.Body.Close()
 
-	data := &LXCResponse{}
+	data := &LxcResponse{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -139,7 +139,7 @@ func (c *ProxmoxClient) GetLXCs(ctx context.Context) (*LXCResponse, error) {
 }
 
 // GetNodes performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetNodes(ctx context.Context) (*ProxmoxNodeList, error) {
+func (c *Client) GetNodes(ctx context.Context) (*NodeList, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/", c.BaseURL), nil)
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *ProxmoxClient) GetNodes(ctx context.Context) (*ProxmoxNodeList, error) 
 
 	defer resp.Body.Close()
 
-	data := &ProxmoxNodeList{}
+	data := &NodeList{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -166,7 +166,7 @@ func (c *ProxmoxClient) GetNodes(ctx context.Context) (*ProxmoxNodeList, error) 
 }
 
 // GetQemuNetworkConfig performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetQemuNetworkConfig(ctx context.Context, vmid int) (*QemuAgentNetworkResponse, error) {
+func (c *Client) GetQemuNetworkConfig(ctx context.Context, vmid int) (*QemuAgentNetworkResponse, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/qemu/%d/agent/network-get-interfaces", c.BaseURL, vmid), nil)
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *ProxmoxClient) GetQemuNetworkConfig(ctx context.Context, vmid int) (*Qe
 }
 
 // GetSubdirs performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetSubdirs(ctx context.Context) (*ProxmoxSubdir, error) {
+func (c *Client) GetSubdirs(ctx context.Context) (*Subdir, error) {
 
 	req, err := http.NewRequest("GET", c.BaseURL, nil)
 	if err != nil {
@@ -209,7 +209,7 @@ func (c *ProxmoxClient) GetSubdirs(ctx context.Context) (*ProxmoxSubdir, error) 
 
 	defer resp.Body.Close()
 
-	data := &ProxmoxSubdir{}
+	data := &Subdir{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -220,7 +220,7 @@ func (c *ProxmoxClient) GetSubdirs(ctx context.Context) (*ProxmoxSubdir, error) 
 }
 
 // GetVersion performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetVersion(ctx context.Context) (*ProxmoxVersion, error) {
+func (c *Client) GetVersion(ctx context.Context) (*Version, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/version", c.BaseURL), nil)
 	if err != nil {
@@ -236,7 +236,7 @@ func (c *ProxmoxClient) GetVersion(ctx context.Context) (*ProxmoxVersion, error)
 
 	defer resp.Body.Close()
 
-	data := &ProxmoxVersion{}
+	data := &Version{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -247,7 +247,7 @@ func (c *ProxmoxClient) GetVersion(ctx context.Context) (*ProxmoxVersion, error)
 }
 
 // GetVMConfig performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetVMConfig(ctx context.Context, vmid int) (*ProxmoxVMConfig, error) {
+func (c *Client) GetVMConfig(ctx context.Context, vmid int) (*VMConfig, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/qemu/%d/config", c.BaseURL, vmid), nil)
 	if err != nil {
@@ -263,7 +263,7 @@ func (c *ProxmoxClient) GetVMConfig(ctx context.Context, vmid int) (*ProxmoxVMCo
 
 	defer resp.Body.Close()
 
-	data := &ProxmoxVMConfig{}
+	data := &VMConfig{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *ProxmoxClient) GetVMConfig(ctx context.Context, vmid int) (*ProxmoxVMCo
 }
 
 // GetVMList returns a list of VMs
-func (c *ProxmoxClient) GetVMList(ctx context.Context, node string, excludedHosts map[string]bool) ([]string, error) {
+func (c *Client) GetVMList(ctx context.Context, node string, excludedHosts map[string]bool) ([]string, error) {
 	
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu", c.BaseURL, node), nil)
 
@@ -292,7 +292,7 @@ func (c *ProxmoxClient) GetVMList(ctx context.Context, node string, excludedHost
 
 	defer resp.Body.Close()
 
-	data := &ProxmoxVMs{}
+	data := &VMList{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {
@@ -313,7 +313,7 @@ func (c *ProxmoxClient) GetVMList(ctx context.Context, node string, excludedHost
 }
 
 // GetVMs performs a GET request to the Proxmox API
-func (c *ProxmoxClient) GetVMs(ctx context.Context, node string) (*ProxmoxVMs, error) {
+func (c *Client) GetVMs(ctx context.Context, node string) (*VMList, error) {
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu", c.BaseURL, node), nil)
 	if err != nil {
@@ -329,7 +329,7 @@ func (c *ProxmoxClient) GetVMs(ctx context.Context, node string) (*ProxmoxVMs, e
 
 	defer resp.Body.Close()
 
-	data := &ProxmoxVMs{}
+	data := &VMList{}
 
 	err = json.NewDecoder(resp.Body).Decode(data)
 	if err != nil {

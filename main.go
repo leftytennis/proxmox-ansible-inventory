@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/leftytennis/proxmox-ansible-inventory/ansible"
@@ -21,7 +20,7 @@ var (
 	// ExcludeHosts is a list of hosts to exclude from the inventory
 	excludeHosts = map[string]bool{"pfsense-lab": true, "haos1": true, "mba01": true}
 	version      = "unknown"
-	commit       = "unknownx"
+	commit       = "unknown"
 	date         = "unknown"
 	versionFlag  bool
 	helpFlag     bool
@@ -37,9 +36,7 @@ func main() {
 	flag.Parse()
 
 	if versionFlag {
-		lenCommit := len(commit)
-		min := int(math.Min(7, float64(lenCommit)))
-		fmt.Printf("%s (v%s git %s built on %s)\n", os.Args[0], version, commit[:min], date)
+		fmt.Printf("%s (v%s built on %s)\n", os.Args[0], version, date)
 		os.Exit(0)
 	}
 
@@ -51,24 +48,24 @@ func main() {
 
 	ctx := context.Background()
 
-	pm := proxmox.NewProxmoxClient(proxmoxAPIKey)
+	pm := proxmox.NewClient(proxmoxAPIKey)
 
 	inv := ansible.Inventory{
 		Meta: ansible.InventoryMeta{},
-		All:  ansible.InventoryAll{Children: []string{"proxmox_lxcs", "proxmox_vms", "static"}},
-		LXCs: ansible.InventoryProxmoxLXCs{},
-		VMs:  ansible.InventoryProxmoxVMs{},
+		All:  ansible.InventoryAll{Children: []string{"lxc_containers", "virtual_machines", "static"}},
+		Lxcs: ansible.InventoryLxcs{},
+		VMs:  ansible.InventoryVMs{},
 	}
 
-	hosts, err := ansible.ReadHosts(excludeHosts)
+	hostVarMap, err := inv.ReadHosts(excludeHosts)
 
 	if err != nil {
 		fmt.Printf("error reading hosts file: %v\n", err)
 		os.Exit(1)
 	}
 
-	inv.Static.Hosts = ansible.GetHosts(hosts, excludeHosts)
-	inv.Meta.HostVars = hosts
+	inv.Static.Hosts = inv.GetHosts(hostVarMap, excludeHosts)
+	inv.Meta.HostVars = hostVarMap
 
 	// // Get Proxmox nodes
 	// nodes, err := pm.GetNodes(ctx)
@@ -91,14 +88,14 @@ func main() {
 
 	// Get Proxmox LXC list
 
-	lxcs, err := pm.GetLXCList(ctx, "pve1")
+	lxcs, err := pm.GetLxcList(ctx, "pve1")
 
 	if err != nil {
 		fmt.Printf("error getting proxmox lxc list: %s\n", err)
 		os.Exit(1)
 	}
 
-	inv.LXCs.Hosts = append(inv.LXCs.Hosts, lxcs...)
+	inv.Lxcs.Hosts = append(inv.Lxcs.Hosts, lxcs...)
 
 	// Pretty print our json inventory
 
