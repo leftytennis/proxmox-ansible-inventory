@@ -33,14 +33,21 @@ builds:
       - linux
       - windows
       - darwin
-    ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    ldflags: -s -w -X main.GitVersion={{.Summary}} -X main.GitSha={{.Commit}} -X main.GitDate={{.Date}}
 
 changelog:
   filters:
     exclude:
       - "^docs:"
+      - "^misc"
       - "^test:"
   sort: asc
+
+checksum:
+  name_template: 'sha256_checksums.txt'
+  
+env_files:
+  github_token: .github_token
 
 universal_binaries:
   - replace: true

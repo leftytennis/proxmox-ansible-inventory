@@ -61,7 +61,7 @@ type LxcData struct {
 // Client is the struct for the Proxmox API client
 type Client struct {
 	BaseURL    string
-	apiKey     string
+	apiToken   string
 	HTTPClient *http.Client
 }
 

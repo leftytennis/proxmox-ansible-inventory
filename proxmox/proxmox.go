@@ -9,21 +9,17 @@ import (
 	"time"
 )
 
-const (
-	proxmoxAPIURL = "https://pve1.lefty.tennis:8006/api2/json/"
-)
-
 // NewClient creates a new Client
-func NewClient(apiKey string) *Client {
+func NewClient(baseURL string, apiToken string) *Client {
 	return &Client{
-		BaseURL:    proxmoxAPIURL,
-		apiKey:     apiKey,
+		BaseURL:    baseURL,
+		apiToken:   "PVEAPIToken=" + apiToken,
 		HTTPClient: &http.Client{Timeout: time.Second * 30},
 	}
 }
 
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
-	req.Header.Add("Authorization", c.apiKey)
+	req.Header.Add("Authorization", c.apiToken)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	resp, err := c.HTTPClient.Do(req)
@@ -48,9 +44,9 @@ func (c *Client) Get(url string) (*http.Response, error) {
 }
 
 // GetLxcConfig performs a GET request to the Proxmox API
-func (c *Client) GetLxcConfig(ctx context.Context, vmid int) (*LxcConfig, error) {
+func (c *Client) GetLxcConfig(ctx context.Context, node string, vmid int) (*LxcConfig, error) {
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/lxc/%d/config", c.BaseURL, vmid), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/lxc/%d/config", c.BaseURL, node, vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +71,8 @@ func (c *Client) GetLxcConfig(ctx context.Context, vmid int) (*LxcConfig, error)
 }
 
 // GetLxcList returns a lsit of LXC containers
-func (c *Client) GetLxcList(ctx context.Context, node string) ([]string, error) {
-	
+func (c *Client) GetLxcList(ctx context.Context, node string, excludedHosts map[string]bool) ([]string, error) {
+
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/lxc", c.BaseURL, node), nil)
 
 	if err != nil {
@@ -104,7 +100,9 @@ func (c *Client) GetLxcList(ctx context.Context, node string) ([]string, error) 
 
 	for _, lxc := range data.Data {
 		if lxc.Status == "running" {
-			lxcs = append(lxcs, lxc.Name)
+			if _, ok := excludedHosts[lxc.Name]; !ok {
+				lxcs = append(lxcs, lxc.Name)
+			}
 		}
 	}
 
@@ -112,9 +110,9 @@ func (c *Client) GetLxcList(ctx context.Context, node string) ([]string, error) 
 }
 
 // GetLxcs performs a GET request to the Proxmox API
-func (c *Client) GetLxcs(ctx context.Context) (*LxcResponse, error) {
+func (c *Client) GetLxcs(ctx context.Context, node string) (*LxcResponse, error) {
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/lxc", c.BaseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/lxc", c.BaseURL, node), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -166,9 +164,9 @@ func (c *Client) GetNodes(ctx context.Context) (*NodeList, error) {
 }
 
 // GetQemuNetworkConfig performs a GET request to the Proxmox API
-func (c *Client) GetQemuNetworkConfig(ctx context.Context, vmid int) (*QemuAgentNetworkResponse, error) {
+func (c *Client) GetQemuNetworkConfig(ctx context.Context, node string, vmid int) (*QemuAgentNetworkResponse, error) {
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/qemu/%d/agent/network-get-interfaces", c.BaseURL, vmid), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu/%d/agent/network-get-interfaces", c.BaseURL, node, vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -247,9 +245,9 @@ func (c *Client) GetVersion(ctx context.Context) (*Version, error) {
 }
 
 // GetVMConfig performs a GET request to the Proxmox API
-func (c *Client) GetVMConfig(ctx context.Context, vmid int) (*VMConfig, error) {
+func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (*VMConfig, error) {
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/pve1/qemu/%d/config", c.BaseURL, vmid), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu/%d/config", c.BaseURL, node, vmid), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +273,7 @@ func (c *Client) GetVMConfig(ctx context.Context, vmid int) (*VMConfig, error) {
 
 // GetVMList returns a list of VMs
 func (c *Client) GetVMList(ctx context.Context, node string, excludedHosts map[string]bool) ([]string, error) {
-	
+
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu", c.BaseURL, node), nil)
 
 	if err != nil {

@@ -1,5 +1,8 @@
 ?.txt
+.github_token
+.proxmox-ansible-inventory.yml
 .vscode/
 dist/
 inventory_proxmox
+README.md
 vendor/
