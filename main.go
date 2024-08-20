@@ -15,6 +15,8 @@ import (
 )
 
 var (
+	// Config is the configuration parameters used by proxmox-ansible-inventory
+	Config = ConfigParams{}
 	// ExcludedHostsMap is a map of excluded hosts
 	excludedHostsMap = make(map[string]bool)
 	// GitVersion is the version of the program
@@ -24,61 +26,48 @@ var (
 	// GitDate is the date the program was built
 	GitDate = "unknown"
 	// Flags used by this program
-	apiToken      string
-	baseURL       string
-	excludedHosts []string
-	helpFlag      bool
-	hostFlag      string
-	listFlag      bool
-	versionFlag   bool
+	apiToken    string
+	baseURL     string
+	helpFlag    bool
+	listFlag    bool
+	versionFlag bool
 )
 
-// Config is the configuration info used by proxmox-ansible-inventory
-type Config struct {
+// ConfigParams is the configuration info used by proxmox-ansible-inventory
+type ConfigParams struct {
+	Proxmox ConfigProxmox `mapstructure:"proxmox"`
+}
+
+// ConfigProxmox is the Proxmox section of the config file
+type ConfigProxmox struct {
 	// APIToken is the Proxmox API token
-	APIToken string
+	APIToken string `mapstructure:"api_token"`
 	// BaseURL is the Proxmox API base URL
-	BaseURL  string
+	BaseURL string `mapstructure:"base_url"`
 	// Exclude is a list of hostnames to exclude from the inventory
-	Exclude  []string
+	Exclude []string `mapstructure:"exclude"`
+	// Lookup is a flag to enable or disable IP address lookup
+	Lookup bool `mapstructure:"lookup"`
 }
 
 func init() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.StringSliceVarP(&excludedHosts, "exclude", "e", []string{}, "exclude the specified `hostnames` from the inventory")
 	pflag.BoolVarP(&helpFlag, "help", "h", false, "show program help")
-	pflag.StringVarP(&hostFlag, "host", "", "", "show info for the specified `hostname`")
 	pflag.BoolVarP(&listFlag, "list", "", true, "list the inventory")
 	pflag.BoolVarP(&versionFlag, "version", "", false, "show program version")
-	pflag.CommandLine.MarkHidden("exclude")
 }
 
 func main() {
 
 	// Setup viper
-	viper.SetEnvPrefix("PAI")
-	viper.SetConfigName(".proxmox-ansible-inventory")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	// viper.AutomaticEnv()
-	// viper.BindEnv("api_token")
-	// viper.BindEnv("base_url")
-	// viper.BindEnv("exclude")
-
-	err := viper.ReadInConfig()
-
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Printf("error reading config file: %v\n", err)
+	err := setupViper()
+	if err != nil {
+		fmt.Printf("error setting up viper: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Parse command line flags
 	pflag.Parse()
-
-	// Get config values from viper
-	apiToken := viper.GetString("proxmox.api_token")
-	baseURL := viper.GetString("proxmox.base_url")
-	excludedHosts := viper.GetStringSlice("proxmox.exclude")
 
 	// Show help if requested
 	if helpFlag {
@@ -93,20 +82,24 @@ func main() {
 		os.Exit(0)
 	}
 
-	if len(hostFlag) == 0 && !listFlag {
-		fmt.Printf("one of --list or --host is required\n")
-	}
+	// Check for required flags
+	// if len(hostFlag) == 0 && !listFlag {
+	// 	fmt.Printf("one of --list or --host is required\n")
+	// }
 
-	if len(excludedHosts) > 0 {
-		for _, host := range excludedHosts {
+	// Build excluded hosts map
+	if len(Config.Proxmox.Exclude) > 0 {
+		for _, host := range Config.Proxmox.Exclude {
 			excludedHostsMap[host] = true
 		}
 	}
 
+	// Create a new Proxmox client
 	ctx := context.Background()
 
-	pm := proxmox.NewClient(baseURL, apiToken)
+	pm := proxmox.NewClient(Config.Proxmox.BaseURL, Config.Proxmox.APIToken)
 
+	// Create proxmox inventory structure
 	inv := ansible.Inventory{
 		Meta: ansible.InventoryMeta{},
 		All:  ansible.InventoryAll{Children: []string{"containers", "virtual_machines"}},
@@ -114,51 +107,88 @@ func main() {
 		VMs:  ansible.InventoryVMs{Hosts: []string{}},
 	}
 
+	// Create host vars map
 	hostVarMap := make(ansible.MapHostVar)
-
 	inv.Meta.HostVars = hostVarMap
 
 	// Get list of Proxmox nodes
 	nodeList, err := pm.GetNodes(ctx)
-
 	if err != nil {
 		fmt.Printf("error: %s\n", err)
 		os.Exit(1)
 	}
 
-	// Get Proxmox VMs and LXCs info from each Proxmox node
+	// Get Proxmox virtual machines and containers from each Proxmox node
 	for _, nodeData := range nodeList.Data {
 
 		// Get Proxmox VM list
 		vms, err := pm.GetVMList(ctx, nodeData.Node, excludedHostsMap)
-
 		if err != nil {
 			fmt.Printf("error getting proxmox vms: %s\n", err)
 			os.Exit(1)
 		}
-
 		inv.VMs.Hosts = append(inv.VMs.Hosts, vms...)
+		if Config.Proxmox.Lookup {
+			for _, vm := range vms {
+				_, err := inv.LookupIPAddress(hostVarMap, excludedHostsMap, vm)
+				if err != nil {
+					fmt.Printf("error getting ip address for host %s: %s\n", vm, err)
+				}
+			}
+		}
 
 		// Get Proxmox LXC list
 		lxcs, err := pm.GetLxcList(ctx, nodeData.Node, excludedHostsMap)
-
 		if err != nil {
 			fmt.Printf("error getting proxmox lxc list: %s\n", err)
 			os.Exit(1)
 		}
-
 		inv.Lxcs.Hosts = append(inv.Lxcs.Hosts, lxcs...)
+		if Config.Proxmox.Lookup {
+			for _, lxc := range lxcs {
+				_, err := inv.LookupIPAddress(hostVarMap, excludedHostsMap, lxc)
+				if err != nil {
+					fmt.Printf("error getting ip address for host %s: %s\n", lxc, err)
+				}
+			}
+		}
 	}
 
 	// Pretty print our json inventory
-
-	str, err := json.MarshalIndent(inv, "", "    ")
-
+	str, err := json.MarshalIndent(inv, "", "   ")
 	if err != nil {
 		fmt.Printf("error marshalling json: %v\n", err)
 		os.Exit(1)
 	}
-
 	fmt.Printf("%s\n", str)
 
+	os.Exit(0)
+}
+
+// setupViper sets up the viper configuration
+func setupViper() error {
+
+	// Setup viper
+	viper.SetEnvPrefix("PAI")
+	viper.SetConfigName(".proxmox-ansible-inventory")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+
+	// Set defaults
+	viper.SetDefault("proxmox.lookup", false)
+
+	// Read config file
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Printf("error reading config file: %v\n", err)
+		return err
+	}
+
+	// Unmarshal config values into a Config struct
+	err := viper.Unmarshal(&Config)
+	if err != nil {
+		fmt.Printf("error unmarshalling config: %v\n", err)
+		return err
+	}
+
+	return nil
 }
