@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -170,23 +171,33 @@ func setupViper() error {
 
 	// Setup viper
 	viper.SetEnvPrefix("PAI")
-	viper.SetConfigName(".proxmox-ansible-inventory")
+	viper.SetConfigName(".proxmox-ansible-inventory.yml")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME/.config/proxmox-ansible-inventory/")
 
 	// Set defaults
 	viper.SetDefault("proxmox.lookup", false)
 
 	// Read config file
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Printf("error reading config file: %v\n", err)
 		return err
 	}
+
+	// Proxmox api_token is required
+	if !viper.IsSet("proxmox.api_token") {
+		return errors.New("api_token is required and is not found in the config file")
+	}
+
+	// Proxmox base_url is required
+	if !viper.IsSet("proxmox.base_url") {
+		return errors.New("base_url is required and is not found in the config file")
+	}
+
 
 	// Unmarshal config values into a Config struct
 	err := viper.Unmarshal(&Config)
 	if err != nil {
-		fmt.Printf("error unmarshalling config: %v\n", err)
 		return err
 	}
 
