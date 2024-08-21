@@ -4,12 +4,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 
 	"github.com/leftytennis/proxmox-ansible-inventory/ansible"
+	"github.com/leftytennis/proxmox-ansible-inventory/config"
 	"github.com/leftytennis/proxmox-ansible-inventory/proxmox"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -17,7 +17,7 @@ import (
 
 var (
 	// Config is the configuration parameters used by proxmox-ansible-inventory
-	Config = ConfigParams{}
+	Config = config.Params{}
 	// ExcludedHostsMap is a map of excluded hosts
 	excludedHostsMap = make(map[string]bool)
 	// GitVersion is the version of the program
@@ -33,23 +33,6 @@ var (
 	listFlag    bool
 	versionFlag bool
 )
-
-// ConfigParams is the configuration info used by proxmox-ansible-inventory
-type ConfigParams struct {
-	Proxmox ConfigProxmox `mapstructure:"proxmox"`
-}
-
-// ConfigProxmox is the Proxmox section of the config file
-type ConfigProxmox struct {
-	// APIToken is the Proxmox API token
-	APIToken string `mapstructure:"api_token"`
-	// BaseURL is the Proxmox API base URL
-	BaseURL string `mapstructure:"base_url"`
-	// Exclude is a list of hostnames to exclude from the inventory
-	Exclude []string `mapstructure:"exclude"`
-	// Lookup is a flag to enable or disable IP address lookup
-	Lookup bool `mapstructure:"lookup"`
-}
 
 func init() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -83,11 +66,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Check for required flags
-	// if len(hostFlag) == 0 && !listFlag {
-	// 	fmt.Printf("one of --list or --host is required\n")
-	// }
-
 	// Build excluded hosts map
 	if len(Config.Proxmox.Exclude) > 0 {
 		for _, host := range Config.Proxmox.Exclude {
@@ -98,7 +76,7 @@ func main() {
 	// Create a new Proxmox client
 	ctx := context.Background()
 
-	pm := proxmox.NewClient(Config.Proxmox.BaseURL, Config.Proxmox.APIToken)
+	pm := proxmox.NewClient(&Config)
 
 	// Create proxmox inventory structure
 	inv := ansible.Inventory{
@@ -184,19 +162,13 @@ func setupViper() error {
 		return err
 	}
 
-	// Proxmox api_token is required
-	if !viper.IsSet("proxmox.api_token") {
-		return errors.New("api_token is required and is not found in the config file")
-	}
-
-	// Proxmox base_url is required
-	if !viper.IsSet("proxmox.base_url") {
-		return errors.New("base_url is required and is not found in the config file")
-	}
-
-
 	// Unmarshal config values into a Config struct
 	err := viper.Unmarshal(&Config)
+	if err != nil {
+		return err
+	}
+
+	err = Config.CheckRequiredValues()
 	if err != nil {
 		return err
 	}

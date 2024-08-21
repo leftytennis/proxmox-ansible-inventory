@@ -6,21 +6,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/leftytennis/proxmox-ansible-inventory/config"
 )
 
 // NewClient creates a new Client
-func NewClient(baseURL string, apiToken string) *Client {
+func NewClient(cfg *config.Params) *Client {
+	
+	var apiToken string
+	var baseURL string
+
+	apiToken = "PVEAPIToken=" + cfg.Proxmox.API.User + "!" + cfg.Proxmox.API.Token + "=" + cfg.Proxmox.API.Secret
+	baseURL = strings.TrimSuffix(cfg.Proxmox.API.URL, "/") + "/api2/json"
+
 	return &Client{
+		apiToken:   apiToken,
 		BaseURL:    baseURL,
-		apiToken:   "PVEAPIToken=" + apiToken,
 		HTTPClient: &http.Client{Timeout: time.Second * 30},
 	}
 }
 
 // doRequest performs the HTTP request
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
-	
+
 	// Set the required headers
 	req.Header.Add("Authorization", c.apiToken)
 	req.Header.Add("Content-Type", "application/json")
@@ -43,7 +53,7 @@ func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 
 // Get performs a GET request to the Proxmox API
 func (c *Client) Get(url string) (*http.Response, error) {
-	
+
 	// Create the request
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", c.BaseURL, url), nil)
 	if err != nil {
