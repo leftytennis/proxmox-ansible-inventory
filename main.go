@@ -107,14 +107,6 @@ func main() {
 			os.Exit(1)
 		}
 		inv.VMs.Hosts = append(inv.VMs.Hosts, vms...)
-		if Config.Proxmox.Lookup {
-			for _, vm := range vms {
-				_, err := inv.LookupIPAddress(hostVarMap, excludedHostsMap, vm)
-				if err != nil {
-					fmt.Printf("error getting ip address for host %s: %s\n", vm, err)
-				}
-			}
-		}
 
 		// Get Proxmox LXC list
 		lxcs, err := pm.GetLxcList(ctx, nodeData.Node, excludedHostsMap)
@@ -123,14 +115,6 @@ func main() {
 			os.Exit(1)
 		}
 		inv.Lxcs.Hosts = append(inv.Lxcs.Hosts, lxcs...)
-		if Config.Proxmox.Lookup {
-			for _, lxc := range lxcs {
-				_, err := inv.LookupIPAddress(hostVarMap, excludedHostsMap, lxc)
-				if err != nil {
-					fmt.Printf("error getting ip address for host %s: %s\n", lxc, err)
-				}
-			}
-		}
 	}
 
 	// Pretty print our json inventory

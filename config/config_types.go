@@ -12,8 +12,6 @@ type ProxmoxParams struct {
 	API APIParams `mapstructure:"api"`
 	// Exclude is a list of hostnames to exclude from the inventory
 	Exclude []string `mapstructure:"exclude"`
-	// Lookup is a flag to enable or disable IP address lookup
-	Lookup bool `mapstructure:"lookup"`
 }
 
 // APIParams is the api_token section of the config file

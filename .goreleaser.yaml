@@ -49,6 +49,9 @@ checksum:
 env_files:
   github_token: .github_token
 
+snapshot:
+  version_template: "{{.Summary}}"
+
 universal_binaries:
   - replace: true
 
