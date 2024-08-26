@@ -3,6 +3,7 @@ module github.com/leftytennis/proxmox-ansible-inventory
 go 1.22.5
 
 require (
+	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
 )

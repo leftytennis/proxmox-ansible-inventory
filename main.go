@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/leftytennis/proxmox-ansible-inventory/ansible"
 	"github.com/leftytennis/proxmox-ansible-inventory/config"
 	"github.com/leftytennis/proxmox-ansible-inventory/proxmox"
@@ -18,8 +19,8 @@ import (
 var (
 	// Config is the configuration parameters used by proxmox-ansible-inventory
 	Config = config.Params{}
-	// ExcludedHostsMap is a map of excluded hosts
-	excludedHostsMap = make(map[string]bool)
+	// ExcludedHosts is a set of excluded hosts
+	excludedHosts = mapset.NewSet[string]()
 	// GitVersion is the version of the program
 	GitVersion = "unknown"
 	// GitSha is the git commit hash
@@ -67,11 +68,7 @@ func main() {
 	}
 
 	// Build excluded hosts map
-	if len(Config.Proxmox.Exclude) > 0 {
-		for _, host := range Config.Proxmox.Exclude {
-			excludedHostsMap[host] = true
-		}
-	}
+	excludedHosts.Append(Config.Proxmox.Exclude...)
 
 	// Create a new Proxmox client
 	ctx := context.Background()
@@ -101,7 +98,7 @@ func main() {
 	for _, nodeData := range nodeList.Data {
 
 		// Get Proxmox VM list
-		vms, err := pm.GetVMList(ctx, nodeData.Node, excludedHostsMap)
+		vms, err := pm.GetVMList(ctx, nodeData.Node, excludedHosts)
 		if err != nil {
 			fmt.Printf("error getting proxmox vms: %s\n", err)
 			os.Exit(1)
@@ -109,7 +106,7 @@ func main() {
 		inv.VMs.Hosts = append(inv.VMs.Hosts, vms...)
 
 		// Get Proxmox LXC list
-		lxcs, err := pm.GetLxcList(ctx, nodeData.Node, excludedHostsMap)
+		lxcs, err := pm.GetLxcList(ctx, nodeData.Node, excludedHosts)
 		if err != nil {
 			fmt.Printf("error getting proxmox lxc list: %s\n", err)
 			os.Exit(1)

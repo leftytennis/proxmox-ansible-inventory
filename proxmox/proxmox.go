@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/leftytennis/proxmox-ansible-inventory/config"
 )
 
 // NewClient creates a new Client
 func NewClient(cfg *config.Params) *Client {
-	
+
 	var apiToken string
 	var baseURL string
 
@@ -99,7 +100,7 @@ func (c *Client) GetLxcConfig(ctx context.Context, node string, vmid int) (*LxcC
 }
 
 // GetLxcList returns a lsit of LXC containers
-func (c *Client) GetLxcList(ctx context.Context, node string, excludedHosts map[string]bool) ([]string, error) {
+func (c *Client) GetLxcList(ctx context.Context, node string, excludedHosts mapset.Set[string]) ([]string, error) {
 
 	// Create the request
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/lxc", c.BaseURL, node), nil)
@@ -134,7 +135,7 @@ func (c *Client) GetLxcList(ctx context.Context, node string, excludedHosts map[
 	// Loop through the data and append the LXC containers to the list
 	for _, lxc := range data.Data {
 		if lxc.Status == "running" {
-			if _, ok := excludedHosts[lxc.Name]; !ok {
+			if !excludedHosts.ContainsOne(lxc.Name) {
 				lxcs = append(lxcs, lxc.Name)
 			}
 		}
@@ -349,7 +350,7 @@ func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (*VMCon
 }
 
 // GetVMList returns a list of VMs
-func (c *Client) GetVMList(ctx context.Context, node string, excludedHosts map[string]bool) ([]string, error) {
+func (c *Client) GetVMList(ctx context.Context, node string, excludedHosts mapset.Set[string]) ([]string, error) {
 
 	// Create the request
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu", c.BaseURL, node), nil)
@@ -384,7 +385,7 @@ func (c *Client) GetVMList(ctx context.Context, node string, excludedHosts map[s
 	// Loop through the data and append the VMs to the list
 	for _, vm := range data.Data {
 		if vm.Status == "running" {
-			if _, ok := excludedHosts[vm.Name]; !ok {
+			if !excludedHosts.ContainsOne(vm.Name) {
 				vms = append(vms, vm.Name)
 			}
 		}
