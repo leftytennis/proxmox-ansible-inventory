@@ -3,10 +3,10 @@ package ansible
 
 // Inventory is the top-level structure for the Ansible inventory
 type Inventory struct {
-	Meta      InventoryMeta      `json:"_meta"`
-	All       InventoryAll       `json:"all"`
-	Lxcs      InventoryLxcs      `json:"containers"`
-	VMs       InventoryVMs       `json:"virtual_machines"`
+	Meta            InventoryMeta            `json:"_meta"`
+	All             InventoryAll             `json:"all"`
+	Containers      InventoryContainers      `json:"containers"`
+	VirtualMachines InventoryVirtualMachines `json:"virtual_machines"`
 	// Ungrouped InventoryUngrouped `json:"ungrouped"`
 }
 
@@ -23,12 +23,12 @@ type InventoryAll struct {
 	Children []string `json:"children"`
 }
 
-// InventoryLxcs is the "proxmox_lxcs" group in the Ansible inventory
-type InventoryLxcs struct {
+// InventoryContainers is the "containers" group in the Ansible inventory
+type InventoryContainers struct {
 	Hosts []string `json:"hosts"`
 }
 
-// InventoryVMs is the "proxmox_vms" group in the Ansible inventory
-type InventoryVMs struct {
+// InventoryVirtualMachines is the "virtual_machines" group in the Ansible inventory
+type InventoryVirtualMachines struct {
 	Hosts []string `json:"hosts"`
 }

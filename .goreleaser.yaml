@@ -28,12 +28,14 @@ before:
 
 builds:
   - env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=0 
+    flags:
+      - -tags=osusergo,netgo,static_build
     goos:
       - linux
       - windows
       - darwin
-    ldflags: -s -w -X main.GitVersion={{.Summary}} -X main.GitSha={{.Commit}} -X main.GitDate={{.Date}}
+    ldflags: -extldflags '-static' -s -w -X main.GitVersion={{.Summary}} -X main.GitSha={{.Commit}} -X main.GitDate={{.Date}} 
 
 changelog:
   filters:
@@ -56,4 +58,5 @@ universal_binaries:
   - replace: true
 
 version: 2
+
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj expandtab

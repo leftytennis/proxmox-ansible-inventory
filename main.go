@@ -77,10 +77,10 @@ func main() {
 
 	// Create proxmox inventory structure
 	inv := ansible.Inventory{
-		Meta: ansible.InventoryMeta{},
-		All:  ansible.InventoryAll{Children: []string{"containers", "virtual_machines"}},
-		Lxcs: ansible.InventoryLxcs{Hosts: []string{}},
-		VMs:  ansible.InventoryVMs{Hosts: []string{}},
+		Meta:            ansible.InventoryMeta{},
+		All:             ansible.InventoryAll{Children: []string{"containers", "virtual_machines"}},
+		Containers:      ansible.InventoryContainers{Hosts: []string{}},
+		VirtualMachines: ansible.InventoryVirtualMachines{Hosts: []string{}},
 	}
 
 	// Create host vars map
@@ -103,7 +103,7 @@ func main() {
 			fmt.Printf("error getting proxmox vms: %s\n", err)
 			os.Exit(1)
 		}
-		inv.VMs.Hosts = append(inv.VMs.Hosts, vms...)
+		inv.VirtualMachines.Hosts = append(inv.VirtualMachines.Hosts, vms...)
 
 		// Get Proxmox LXC list
 		lxcs, err := pm.GetLxcList(ctx, nodeData.Node, excludedHosts)
@@ -111,7 +111,7 @@ func main() {
 			fmt.Printf("error getting proxmox lxc list: %s\n", err)
 			os.Exit(1)
 		}
-		inv.Lxcs.Hosts = append(inv.Lxcs.Hosts, lxcs...)
+		inv.Containers.Hosts = append(inv.Containers.Hosts, lxcs...)
 	}
 
 	// Pretty print our json inventory
