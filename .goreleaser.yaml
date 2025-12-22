@@ -1,0 +1,69 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+archives:
+  - id: proxmox-ansible-inventory
+    formats: ['tar.gz']
+    format_overrides:
+      - formats: ['zip']
+        goos: windows
+    # name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: >-
+      {{ .ProjectName }}_v
+      {{- .Version }}_
+      {{- tolower .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+before:
+  hooks:
+    - rm -rf dist/
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0 
+    flags:
+      - -tags=osusergo,netgo,static_build
+    goarch:
+      - amd64
+      - arm64
+      - 386
+    goos:
+      - linux
+      - windows
+      - darwin
+    id: proxmox-ansible-inventory
+    ldflags: -extldflags '-static' -s -w -X main.GitVersion={{.Summary}} -X main.GitSha={{.Commit}} -X main.GitDate={{.Date}} 
+
+changelog:
+  filters:
+    exclude:
+      - "^docs:"
+      - "^misc"
+      - "^test:"
+  sort: asc
+
+checksum:
+  name_template: 'sha256_checksums.txt'
+  
+env_files:
+  github_token: .github_token
+
+snapshot:
+  version_template: "{{.Summary}}"
+
+universal_binaries:
+  - replace: true
+
+version: 2
+
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj expandtab
