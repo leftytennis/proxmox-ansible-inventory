@@ -1,8 +1,7 @@
 # Proxmox Ansible Inventory
 
-This program is used to provide a dynamic inventory to ansible for running LXC or Qemu virtual machines that are active in your proxmox cluster.
-A cluster is not required, but if you have created a cluster with one or more Proxmox nodes defined, it will obtain a list of the running LXC containers
-and Qemu virtual machines running across the cluster.
+This program is used to provide a dynamic inventory to ansible for LXC or Qemu virtual machines that are active in your proxmox cluster.
+A cluster is not required, but if you have created a cluster with one or more Proxmox nodes defined, it will obtain a list of the running LXC containers and Qemu virtual machines running across the cluster.
 
 ## Installation
 
@@ -34,15 +33,39 @@ placed the executable in the same directory as the ansible.cfg file.
     gathering = smart
     gather_subset = !hardware
     gather_timeout = 10
-    inventory = ./proxmox-ansible-inventory
+    inventory = hosts, ./proxmox-ansible-inventory
     interpreter_python = auto_silent
     timeout=60
     verbosity=1
     [ssh_connection]
     scp_if_ssh=True
     transfer_method=scp
+    ```
 
-4. Run the "_ansible-inventory --list_" command, which should produce output similar to the following:
+4. Copy the example configuration file and customize it with values specific to your proxmox installation:
+
+    ```
+    cp .proxmox-ansible-inventory.yml.example .proxmox-ansisble-inventory.yml
+    ```
+
+    Then edit the configuration file
+    
+    ##### .proxmox-ansible-inventory.yml
+    ```
+    ---
+
+    proxmox:
+    api:
+        secret: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        token: ansible
+        url: https://pve.example.com:8006
+        user: admin@pam
+    exclude:
+        - testlxc
+        - testvm
+    ```
+
+5. Run the "_ansible-inventory --list_" command, which should produce output similar to the following:
 
     ```
     {

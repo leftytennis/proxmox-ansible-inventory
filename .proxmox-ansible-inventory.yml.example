@@ -1,0 +1,12 @@
+---
+
+proxmox:
+  api:
+    secret: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    token: ansible
+    url: https://pve.example.com:8006
+    user: admin@pam
+  exclude:
+    - testlxc
+    - testvm
+
