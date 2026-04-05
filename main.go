@@ -7,6 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
+	"slices"
+	"sort"
+	"strings"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/leftytennis/proxmox-ansible-inventory/ansible"
@@ -28,9 +32,8 @@ var (
 	// GitDate is the date the program was built
 	GitDate = "unknown"
 	// Flags used by this program
-	apiToken    string
-	baseURL     string
 	helpFlag    bool
+	hostFlag    string
 	listFlag    bool
 	versionFlag bool
 )
@@ -38,6 +41,7 @@ var (
 func init() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.BoolVarP(&helpFlag, "help", "h", false, "show program help")
+	pflag.StringVarP(&hostFlag, "host", "", "", "show variables for a single host")
 	pflag.BoolVarP(&listFlag, "list", "", true, "list the inventory")
 	pflag.BoolVarP(&versionFlag, "version", "", false, "show program version")
 }
@@ -77,10 +81,8 @@ func main() {
 
 	// Create proxmox inventory structure
 	inv := ansible.Inventory{
-		Meta:            ansible.InventoryMeta{},
-		All:             ansible.InventoryAll{Children: []string{"containers", "virtual_machines"}},
-		Containers:      ansible.InventoryContainers{Hosts: []string{}},
-		VirtualMachines: ansible.InventoryVirtualMachines{Hosts: []string{}},
+		Meta: ansible.InventoryMeta{},
+		All:  ansible.InventoryAll{Children: []string{"proxmox_lxcs", "proxmox_vms", "ungrouped"}},
 	}
 
 	// Create host vars map
@@ -94,24 +96,148 @@ func main() {
 		os.Exit(1)
 	}
 
+	type hostInfo struct {
+		node string
+		vmid int
+	}
+
+	roles := make(map[string][]string)
+	lxcNames := []string{}
+	vmNames := []string{}
+	lxcHosts := make(map[string]hostInfo)
+	vmHosts := make(map[string]hostInfo)
+
 	// Get Proxmox virtual machines and containers from each Proxmox node
 	for _, nodeData := range nodeList.Data {
 
 		// Get Proxmox VM list
-		vms, err := pm.GetVMList(ctx, nodeData.Node, excludedHosts)
+		vmList, err := pm.GetVMs(ctx, nodeData.Node)
 		if err != nil {
 			fmt.Printf("error getting proxmox vms: %s\n", err)
 			os.Exit(1)
 		}
-		inv.VirtualMachines.Hosts = append(inv.VirtualMachines.Hosts, vms...)
+		for _, vm := range vmList.Data {
+			if vm.Status != "running" {
+				continue
+			}
+			if excludedHosts.ContainsOne(vm.Name) {
+				continue
+			}
+			vmNames = append(vmNames, vm.Name)
+			vmHosts[vm.Name] = hostInfo{node: nodeData.Node, vmid: vm.Vmid}
+			tags := strings.Split(strings.Trim(vm.Tags, " "), ";")
+			for _, tag := range tags {
+				if tag == "" {
+					continue
+				}
+				group := sanitizeGroupName(tag)
+				if !slices.Contains(inv.All.Children, group) {
+					inv.All.Children = append(inv.All.Children, group)
+				}
+				if _, exists := roles[group]; !exists {
+					roles[group] = []string{}
+				}
+				roles[group] = append(roles[group], vm.Name)
+			}
+		}
 
 		// Get Proxmox LXC list
-		lxcs, err := pm.GetLxcList(ctx, nodeData.Node, excludedHosts)
+		lxcs, err := pm.GetLxcs(ctx, nodeData.Node)
 		if err != nil {
-			fmt.Printf("error getting proxmox lxc list: %s\n", err)
+			fmt.Printf("error getting proxmox lxcs: %s\n", err)
 			os.Exit(1)
 		}
-		inv.Containers.Hosts = append(inv.Containers.Hosts, lxcs...)
+		for _, lxc := range lxcs.Data {
+			if lxc.Status != "running" {
+				continue
+			}
+			if excludedHosts.ContainsOne(lxc.Name) {
+				continue
+			}
+			lxcNames = append(lxcNames, lxc.Name)
+			lxcHosts[lxc.Name] = hostInfo{node: nodeData.Node, vmid: lxc.Vmid}
+			tags := strings.Split(strings.Trim(lxc.Tags, " "), ";")
+			for _, tag := range tags {
+				if tag == "" {
+					continue
+				}
+				group := sanitizeGroupName(tag)
+				if !slices.Contains(inv.All.Children, group) {
+					inv.All.Children = append(inv.All.Children, group)
+				}
+				if _, exists := roles[group]; !exists {
+					roles[group] = []string{}
+				}
+				roles[group] = append(roles[group], lxc.Name)
+			}
+		}
+	}
+
+	// Lookup IP addresses for ansible_host hostvars
+	if Config.Proxmox.Lookup {
+		for name, info := range lxcHosts {
+			cfg, err := pm.GetLxcConfig(ctx, info.node, info.vmid)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to get LXC config for %s: %v\n", name, err)
+				continue
+			}
+			// Try Net0 through Net4
+			for _, net := range []string{cfg.Data.Net0, cfg.Data.Net1, cfg.Data.Net2, cfg.Data.Net3, cfg.Data.Net4} {
+				if ip := proxmox.ParseLxcIP(net); ip != "" {
+					hostVarMap[name] = map[string]string{"ansible_host": ip}
+					break
+				}
+			}
+		}
+		for name, info := range vmHosts {
+			netResp, err := pm.GetQemuNetworkConfig(ctx, info.node, info.vmid)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to get QEMU agent network info for %s: %v\n", name, err)
+				continue
+			}
+			if ip := proxmox.FindQemuIPv4(netResp.Data.Result); ip != "" {
+				hostVarMap[name] = map[string]string{"ansible_host": ip}
+			}
+		}
+	}
+
+	sort.Strings(inv.All.Children)
+	sort.Strings(lxcNames)
+	sort.Strings(vmNames)
+	inv.Groups = make(ansible.InventoryGroupMap)
+	inv.Groups["proxmox_lxcs"] = ansible.InventoryGroup{Hosts: lxcNames}
+	inv.Groups["proxmox_vms"] = ansible.InventoryGroup{Hosts: vmNames}
+	inv.Groups["ungrouped"] = ansible.InventoryGroup{Hosts: []string{}}
+
+	keys := []string{}
+	for k := range roles {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		sort.Strings(roles[k])
+		if _, exists := inv.Groups[k]; !exists {
+			inv.Groups[k] = ansible.InventoryGroup{Hosts: roles[k]}
+		}
+		if !slices.Contains(inv.All.Children, k) {
+			inv.All.Children = append(inv.All.Children, k)
+		}
+	}
+
+	// Handle --host: output hostvars for a single host
+	if hostFlag != "" {
+		vars := map[string]string{}
+		if hv, ok := hostVarMap[hostFlag]; ok {
+			vars = hv
+		}
+		str, err := json.MarshalIndent(vars, "", "   ")
+		if err != nil {
+			fmt.Printf("error marshalling json: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("%s\n", str)
+		os.Exit(0)
 	}
 
 	// Pretty print our json inventory
@@ -123,6 +249,18 @@ func main() {
 	fmt.Printf("%s\n", str)
 
 	os.Exit(0)
+}
+
+var groupNameRe = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+
+// sanitizeGroupName converts a Proxmox tag to a valid Ansible group name.
+// Ansible group names must match [a-zA-Z_][a-zA-Z0-9_]*.
+func sanitizeGroupName(tag string) string {
+	name := groupNameRe.ReplaceAllString(tag, "_")
+	if len(name) > 0 && name[0] >= '0' && name[0] <= '9' {
+		name = "_" + name
+	}
+	return name
 }
 
 // setupViper sets up the viper configuration

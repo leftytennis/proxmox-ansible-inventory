@@ -3,15 +3,48 @@ package proxmox
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/leftytennis/proxmox-ansible-inventory/config"
 )
+
+// ParseLxcIP extracts the IPv4 address from an LXC net config string.
+// The format is like "name=eth0,bridge=vmbr0,ip=10.0.0.5/24,..." — returns
+// the IP without the CIDR prefix, or empty string if not found.
+func ParseLxcIP(netConfig string) string {
+	for _, part := range strings.Split(netConfig, ",") {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 && kv[0] == "ip" {
+			ip := kv[1]
+			if idx := strings.Index(ip, "/"); idx != -1 {
+				ip = ip[:idx]
+			}
+			return ip
+		}
+	}
+	return ""
+}
+
+// FindQemuIPv4 returns the first non-loopback IPv4 address from QEMU agent
+// network interface results, or empty string if none found.
+func FindQemuIPv4(results []QemuAgentNetworkResult) string {
+	for _, iface := range results {
+		if iface.Name == "lo" {
+			continue
+		}
+		for _, addr := range iface.IPAddresses {
+			if addr.IPAddressType == "ipv4" {
+				return addr.IPAddress
+			}
+		}
+	}
+	return ""
+}
 
 // NewClient creates a new Client
 func NewClient(cfg *config.Params) *Client {
@@ -22,10 +55,16 @@ func NewClient(cfg *config.Params) *Client {
 	apiToken = "PVEAPIToken=" + cfg.Proxmox.API.User + "!" + cfg.Proxmox.API.Token + "=" + cfg.Proxmox.API.Secret
 	baseURL = strings.TrimSuffix(cfg.Proxmox.API.URL, "/") + "/api2/json"
 
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: cfg.Proxmox.API.TLSInsecure,
+		},
+	}
+
 	return &Client{
 		apiToken:   apiToken,
 		BaseURL:    baseURL,
-		HTTPClient: &http.Client{Timeout: time.Second * 30},
+		HTTPClient: &http.Client{Timeout: time.Second * 30, Transport: transport},
 	}
 }
 
@@ -44,25 +83,13 @@ func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	}
 
 	// Check the status code
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
-		return resp, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		resp.Body.Close()
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	// return the response and no error
 	return resp, nil
-}
-
-// Get performs a GET request to the Proxmox API
-func (c *Client) Get(url string) (*http.Response, error) {
-
-	// Create the request
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s", c.BaseURL, url), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// do the request and return the response
-	return c.doRequest(req)
 }
 
 // GetLxcConfig performs a GET request to the Proxmox API
@@ -97,52 +124,6 @@ func (c *Client) GetLxcConfig(ctx context.Context, node string, vmid int) (*LxcC
 
 	// Return the data and no error
 	return data, nil
-}
-
-// GetLxcList returns a lsit of LXC containers
-func (c *Client) GetLxcList(ctx context.Context, node string, excludedHosts mapset.Set[string]) ([]string, error) {
-
-	// Create the request
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/lxc", c.BaseURL, node), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add the context
-	req = req.WithContext(ctx)
-
-	// Do the request
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// Close the response body
-	defer resp.Body.Close()
-
-	// Create the LxcResponse struct
-	data := &LxcResponse{}
-
-	// Decode the response
-	err = json.NewDecoder(resp.Body).Decode(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a list of LXC containers
-	lxcs := []string{}
-
-	// Loop through the data and append the LXC containers to the list
-	for _, lxc := range data.Data {
-		if lxc.Status == "running" {
-			if !excludedHosts.ContainsOne(lxc.Name) {
-				lxcs = append(lxcs, lxc.Name)
-			}
-		}
-	}
-
-	// Return the list of LXC containers and no error
-	return lxcs, nil
 }
 
 // GetLxcs performs a GET request to the Proxmox API
@@ -347,52 +328,6 @@ func (c *Client) GetVMConfig(ctx context.Context, node string, vmid int) (*VMCon
 
 	// Return the data and no error
 	return data, nil
-}
-
-// GetVMList returns a list of VMs
-func (c *Client) GetVMList(ctx context.Context, node string, excludedHosts mapset.Set[string]) ([]string, error) {
-
-	// Create the request
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/nodes/%s/qemu", c.BaseURL, node), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add the context
-	req = req.WithContext(ctx)
-
-	// Do the request
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// Close the response body
-	defer resp.Body.Close()
-
-	// Create the VMList struct
-	data := &VMList{}
-
-	// Decode the response
-	err = json.NewDecoder(resp.Body).Decode(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a list of VMs
-	vms := []string{}
-
-	// Loop through the data and append the VMs to the list
-	for _, vm := range data.Data {
-		if vm.Status == "running" {
-			if !excludedHosts.ContainsOne(vm.Name) {
-				vms = append(vms, vm.Name)
-			}
-		}
-	}
-
-	// Return the list of VMs and no error
-	return vms, nil
 }
 
 // GetVMs performs a GET request to the Proxmox API

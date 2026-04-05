@@ -41,19 +41,19 @@ type LxcData struct {
 	Disk      int     `json:"disk"`
 	Maxdisk   int64   `json:"maxdisk"`
 	Type      string  `json:"type"`
-	Maxmem    int     `json:"maxmem"`
+	Maxmem    int64   `json:"maxmem"`
 	Status    string  `json:"status"`
 	Pid       int     `json:"pid"`
 	Vmid      int     `json:"vmid"`
-	Netout    int     `json:"netout"`
-	Netin     int     `json:"netin"`
-	Diskread  int     `json:"diskread"`
+	Netout    int64   `json:"netout"`
+	Netin     int64   `json:"netin"`
+	Diskread  int64   `json:"diskread"`
 	Uptime    int     `json:"uptime"`
-	Diskwrite int     `json:"diskwrite"`
+	Diskwrite int64   `json:"diskwrite"`
 	Tags      string  `json:"tags,omitempty"`
-	Maxswap   int     `json:"maxswap"`
+	Maxswap   int64   `json:"maxswap"`
 	Swap      int     `json:"swap"`
-	Mem       int     `json:"mem"`
+	Mem       int64   `json:"mem"`
 	Cpus      int     `json:"cpus"`
 	CPU       float64 `json:"cpu"`
 }
@@ -155,16 +155,16 @@ type VM struct {
 	Pid       int     `json:"pid"`
 	Status    string  `json:"status"`
 	Maxdisk   int64   `json:"maxdisk"`
-	Netout    int     `json:"netout"`
+	Netout    int64   `json:"netout"`
 	Vmid      int     `json:"vmid"`
-	Diskread  int     `json:"diskread"`
+	Diskread  int64   `json:"diskread"`
 	Uptime    int     `json:"uptime"`
-	Diskwrite int     `json:"diskwrite"`
-	Netin     int     `json:"netin"`
-	Tags      string  `json:"tags"`
+	Diskwrite int64   `json:"diskwrite"`
+	Netin     int64   `json:"netin"`
+	Tags      string  `json:"tags,omitempty"`
 	Cpus      int     `json:"cpus"`
 	CPU       float64 `json:"cpu"`
-	Mem       int     `json:"mem"`
+	Mem       int64   `json:"mem"`
 }
 
 // QemuAgentIPAddresses is the struct for Qemu IP addresses
