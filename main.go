@@ -123,8 +123,9 @@ func main() {
 			if excludedHosts.ContainsOne(vm.Name) {
 				continue
 			}
-			vmNames = append(vmNames, vm.Name)
-			vmHosts[vm.Name] = hostInfo{node: nodeData.Node, vmid: vm.Vmid}
+			hostname := fqdn(vm.Name)
+			vmNames = append(vmNames, hostname)
+			vmHosts[hostname] = hostInfo{node: nodeData.Node, vmid: vm.Vmid}
 			tags := strings.Split(strings.Trim(vm.Tags, " "), ";")
 			for _, tag := range tags {
 				if tag == "" {
@@ -137,7 +138,7 @@ func main() {
 				if _, exists := roles[group]; !exists {
 					roles[group] = []string{}
 				}
-				roles[group] = append(roles[group], vm.Name)
+				roles[group] = append(roles[group], hostname)
 			}
 		}
 
@@ -154,8 +155,9 @@ func main() {
 			if excludedHosts.ContainsOne(lxc.Name) {
 				continue
 			}
-			lxcNames = append(lxcNames, lxc.Name)
-			lxcHosts[lxc.Name] = hostInfo{node: nodeData.Node, vmid: lxc.Vmid}
+			hostname := fqdn(lxc.Name)
+			lxcNames = append(lxcNames, hostname)
+			lxcHosts[hostname] = hostInfo{node: nodeData.Node, vmid: lxc.Vmid}
 			tags := strings.Split(strings.Trim(lxc.Tags, " "), ";")
 			for _, tag := range tags {
 				if tag == "" {
@@ -168,7 +170,7 @@ func main() {
 				if _, exists := roles[group]; !exists {
 					roles[group] = []string{}
 				}
-				roles[group] = append(roles[group], lxc.Name)
+				roles[group] = append(roles[group], hostname)
 			}
 		}
 	}
@@ -251,6 +253,14 @@ func main() {
 	os.Exit(0)
 }
 
+// fqdn returns the hostname with the configured domain appended, if set.
+func fqdn(name string) string {
+	if Config.Proxmox.Domain != "" {
+		return name + "." + Config.Proxmox.Domain
+	}
+	return name
+}
+
 var groupNameRe = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 // sanitizeGroupName converts a Proxmox tag to a valid Ansible group name.
@@ -274,6 +284,7 @@ func setupViper() error {
 	viper.AddConfigPath("$HOME/.config/proxmox-ansible-inventory/")
 
 	// Set defaults
+	viper.SetDefault("proxmox.domain", "")
 	viper.SetDefault("proxmox.lookup", false)
 
 	// Read config file

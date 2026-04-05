@@ -10,6 +10,8 @@ type Params struct {
 type ProxmoxParams struct {
 	// APIParams is the Proxmox API token
 	API APIParams `mapstructure:"api"`
+	// Domain is appended to short hostnames (e.g. "example.com" turns "host1" into "host1.example.com")
+	Domain string `mapstructure:"domain"`
 	// Exclude is a list of hostnames to exclude from the inventory
 	Exclude []string `mapstructure:"exclude"`
 	// Lookup enables additional API calls to resolve ansible_host IP addresses
